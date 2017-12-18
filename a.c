@@ -125,29 +125,33 @@ char** getCurDir(char ** buf){
 	
 }
 
-void exeAutoTab(char buf[], int count){
-	char ** ls = getCurDir(ls);
-	char * ptrBuf, *ptrLs;
+void getArgBuf(char buf[], int count, char argBuf[]){
+	int flag = 0;
+	int i = 0;
+	int argSize = 0;
 
-	for(int i = 0; i < BUFSIZE; i++){
-		if(ls[i] == NULL){
+	while(1){
+		if(flag == 0 && buf[i] == ' '){
 			break;
 		}
-
-		if( (ptrBuf = strstr(buf, ls[i])) != NULL ){
-			ptrLs = strstr(ls[i], buf);
-
-			ptrBuf++;+
-			ptrLs++;
-
-			while(ptrLs != NULL){
-				printf("%c", *ptrLs);
-				*ptrBuf = *ptrLs;
-				ptrBuf++;
-				ptrLs++;
-			}
-		}
+		i++;
 	}
+	
+	for(int j = i; j < count; j++){
+		argBuf[argSize++] = buf[j];
+	}
+}
+
+void exeAutoTab(char buf[], int count){
+	char ** ls = getCurDir(ls);
+	char * ptrLs, *ptrBuf;
+	char argBuf[BUFSIZE];
+	
+	memset(argBuf, 0, BUFSIZE);
+
+	getArgBuf(buf, count, argBuf);
+
+	
 }
 
 int main(){
