@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #define BUFSIZE 1024
 
@@ -44,7 +47,107 @@ char** strParse(char buf[]){
 			tmpSize = 0;
 		}
 	}
+	
+	for(int i = tokenSize; i < BUFSIZE; i++){
+		free(strToken[i]);
+		strToken[i] = NULL;
+	}
+
 	return strToken;
+}
+
+char** freeStrToken(char** strToken){
+	for(int i = 0; i < BUFSIZE; i++){
+		if(strToken[i] == NULL){
+			break;
+		}
+		free(strToken[i]);
+	}
+	
+	strToken = NULL;
+
+	return strToken;
+}
+
+void exeCommand(char** strToken)
+{
+	pid_t childPid;
+
+	//fork to exe command
+		childPid = fork();
+		
+		if(childPid == -1){
+			printf("fork error\n");
+			exit(1);
+		}
+
+		if(childPid == 0){
+	//child
+			execvp(strToken[0], &strToken[0]);		
+		}
+		else {
+	//parent
+			wait(NULL);
+		}
+}
+
+char** getCurDir(char ** buf){
+	DIR *dir;
+	struct dirent *ent;
+	char ** _buf = (char**)malloc(sizeof(char*) * BUFSIZE);
+	int size = 0;
+
+	for(int i = 0; i < BUFSIZE; i++){
+		_buf[i] = (char*)malloc(sizeof(char) * BUFSIZE);
+		memset(_buf[i], 0, BUFSIZE);
+	}
+
+	dir = opendir("./");
+
+	if(dir == NULL){
+		printf("directory open fail\n");
+		exit(1);
+	}
+
+	while( (ent = readdir(dir)) != NULL ){
+		strcpy( _buf[size++], ent->d_name );
+	}
+	closedir(dir);
+	
+	for(int i = size; i < BUFSIZE; i++){
+		free(_buf[i]);
+		_buf[i] = NULL;
+	}
+
+	buf = _buf;
+
+	return buf;
+	
+}
+
+void exeAutoTab(char buf[], int count){
+	char ** ls = getCurDir(ls);
+	char * ptrBuf, *ptrLs;
+
+	for(int i = 0; i < BUFSIZE; i++){
+		if(ls[i] == NULL){
+			break;
+		}
+
+		if( (ptrBuf = strstr(buf, ls[i])) != NULL ){
+			ptrLs = strstr(ls[i], buf);
+
+			ptrBuf++;+
+			ptrLs++;
+
+			while(ptrLs != NULL){
+				printf("%c", *ptrLs);
+				*ptrBuf = *ptrLs;
+				ptrBuf++;
+				ptrLs++;
+			}
+		}
+	}
 }
 
 int main(){
@@ -60,6 +163,7 @@ int main(){
 		printf("User Shell > ");
 		while(1){
 			i = getch();
+
 			printf("%c", i);
 
 			if(count >= BUFSIZE){
@@ -68,23 +172,29 @@ int main(){
 			if(i == '\n'){
 				if(!strcmp(buf, "q"))
 					exit(0);
-				system("clear");
-				printf("<log> : %s\n", buf);
 				strToken = strParse(buf);
 //test
+				printf("==================\n");
 				for(int i = 0; i < BUFSIZE; i++ ){
-					if(strlen(strToken[i]) == 0){
+					if(strToken[i] == NULL){
 						break;
 					}
 					else {
 						printf("[%d]th : %s\n", i, strToken[i]);
 					}
 				}
+				printf("======================\n");
 				
 //end test
+			//exe command
+				exeCommand(strToken);
 				memset(buf, 0, BUFSIZE);
 				count = 0;
+				strToken = freeStrToken(strToken);
 				break;
+			}
+			else if(i == 9){
+				exeAutoTab(buf, count);
 			}
 			else if(i == 127){
 				printf("\b");
