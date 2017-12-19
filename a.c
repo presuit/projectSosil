@@ -144,10 +144,6 @@ void getArgBuf(char buf[], int* count, char argBuf[]){
 }
 
 void deleteUi(char buf[], int *count){
-	printf("\b");
-	fputs(" ", stdout);
-	printf("\b");
-
 	if(*count > 0){
 		buf[*count - 1] = '\0';
 		*count = *count - 1;
@@ -158,6 +154,7 @@ void exeAutoTab(char buf[], int* count){
 	char ** ls = getCurDir(ls);
 	char * ptrLs, *ptrBuf;
 	char argBuf[BUFSIZE];
+	int tabSize = 5;
 	int flag = 0;
 
 	memset(argBuf, 0, BUFSIZE);
@@ -170,9 +167,9 @@ void exeAutoTab(char buf[], int* count){
 
 		if( (ptrLs = strstr(ls[i], argBuf)) != NULL ){
 			for(int i = 0; i < strlen(argBuf); i++){
-				deleteUi(buf, count);
+				deleteUi(buf, count);	
 			}
-			printf("%s", ls[i]);
+
 			strcpy(buf + *count, ls[i]);
 			*count = *count + strlen(ls[i]);
 		}
@@ -191,22 +188,20 @@ int main(){
 	memset(buf, 0, BUFSIZE);
 
 	while(1){
-
 		printf("User Shell >> ");
 		while(1){
 			i = getch();
-
-			printf("%c", i);
 
 			if(count >= BUFSIZE){
 				break;
 			}
 			if(i == '\n'){
+				system("clear");
 				if(!strcmp(buf, "q"))
 					exit(0);
 				strToken = strParse(buf);
 //test
-				printf("==================\n");
+				printf("\n==================\n");
 				for(int i = 0; i < BUFSIZE; i++ ){
 					if(strToken[i] == NULL){
 						break;
@@ -225,15 +220,19 @@ int main(){
 				strToken = freeStrToken(strToken);
 				break;
 			}
-			if(i == 9){
+			else if(i == 9){
 				exeAutoTab(buf, &count);
-				continue;
 			}
-			if(i == 127){
+			else if(i == 127){
 				deleteUi(buf, &count);
-				continue;
-			}	
-			buf[count++] = (char)i;
+			}
+			else {
+				buf[count] = (char)i;
+				count++;
+			}
+			system("clear");
+			printf("User Shell >> ");
+			printf("%s", buf);
 		}
 	}
 
