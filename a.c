@@ -129,16 +129,19 @@ char** getCurDir(char ** buf){
 void getArgBuf(char buf[], int* count, char argBuf[]){
 	int i = *count - 1;
 	int argSize = 0;
- 
-	while(buf[i] != ' '){
-		i--;
+	
+	while( buf[i] != ' ' ){
+		--i;
 	}
-	i++;
-	while(buf[i] != ' '){
+	++i;
+	while(1){
 		argBuf[argSize++] = buf[i++];
+		if( i >= strlen(buf)){
+			break;
+		}
+		
 	}
 }
-
 
 void deleteUi(char buf[], int *count){
 	printf("\b");
@@ -150,7 +153,6 @@ void deleteUi(char buf[], int *count){
 		*count = *count - 1;
 	}
 }
-
 
 void exeAutoTab(char buf[], int* count){
 	char ** ls = getCurDir(ls);
@@ -166,15 +168,18 @@ void exeAutoTab(char buf[], int* count){
 			break;
 		}
 
-		if( (ptrLs = strstr(ls[i], argBuf)) != NULL  ){
-			printf("ptrLs : %s\n", ptrLs);
-			
+		if( (ptrLs = strstr(ls[i], argBuf)) != NULL ){
+			for(int i = 0; i < strlen(argBuf); i++){
+				deleteUi(buf, count);
+			}
+			printf("%s", ls[i]);
+			strcpy(buf + *count, ls[i]);
+			*count = *count + strlen(ls[i]);
 		}
-	}
-	printf("end of func\n");
+	}	
 
+	
 }
-
 
 int main(){
 	
@@ -222,20 +227,9 @@ int main(){
 			}
 			if(i == 9){
 				exeAutoTab(buf, &count);
-				printf("end exeAutoTab func\n");
 				continue;
 			}
 			if(i == 127){
-				/*
-				printf("\b");
-				fputs(" ", stdout);
-				printf("\b");
-
-				if(count > 0){
-					buf[count - 1] = '\0';
-					count--;
-				}
-			}*/
 				deleteUi(buf, &count);
 				continue;
 			}	
