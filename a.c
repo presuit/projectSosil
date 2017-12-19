@@ -152,29 +152,112 @@ void deleteUi(char buf[], int *count){
 
 void exeAutoTab(char buf[], int* count){
 	char ** ls = getCurDir(ls);
-	char * ptrLs, *ptrBuf;
+	char ** ovl = (char**)malloc(sizeof(char*) * BUFSIZE);
+	char * ptrLs;
 	char argBuf[BUFSIZE];
-	int tabSize = 5;
-	int flag = 0;
+	int flag = 0, flagOvl = 0;
+	int ovlSize = 0;
+	int idxOvl = 0;
+	int flagW = 0;
+	char ovlElm;
 
 	memset(argBuf, 0, BUFSIZE);
 	getArgBuf(buf, count, argBuf);
 
 	for(int i = 0; i < BUFSIZE; i++){
+		ovl[i] = (char*)malloc(sizeof(char) * BUFSIZE);
+		memset(ovl[i], 0, BUFSIZE);
+	}
+
+
+	for(int i = 0; i < BUFSIZE; i++){
 		if(ls[i] == NULL){
 			break;
 		}
-
+		
+		if(ls[i][0] == argBuf[0]){
+			flag++;
+			strcpy(ovl[ovlSize++], ls[i]);
+		}
+		/*
 		if( (ptrLs = strstr(ls[i], argBuf)) != NULL ){
-			for(int i = 0; i < strlen(argBuf); i++){
-				deleteUi(buf, count);	
+			flag++;
+			strcpy(ovl[ovlSize++], ls[i]);
+		}
+		*/
+	}
+
+	for(int i = ovlSize; i < BUFSIZE; i++){
+		free(ovl[i]);
+		ovl[i] = NULL;
+	}
+
+	ovlSize = 0;
+
+	if(ovl[1] != NULL){
+		for(int i = 0; i < strlen(argBuf); i++){
+			deleteUi(buf, count);
+		}
+		while(1){
+			if(ovl[0] == NULL){
+				break;
 			}
 
-			strcpy(buf + *count, ls[i]);
-			*count = *count + strlen(ls[i]);
+			ovlElm = ovl[0][ovlSize];
+			for(int i = 0; i < BUFSIZE; i++){
+				if(ovl[i] == NULL){
+					break;
+				}
+				idxOvl++;
+				if(ovl[i][ovlSize] == ovlElm){
+					flagOvl++;
+				}
+			}
+			if(flagOvl >= 2){
+				buf[*count] = ovl[0][ovlSize];
+				*count = *count + 1;
+			}
+			ovlSize++;
+			flagOvl = 0;
+			idxOvl = 0;
+			for(int i = 0; i < BUFSIZE; i++){
+				if(ovl[i] == NULL){
+					break;
+				}
+				if(ovl[i][ovlSize] == '\0'){
+					flagW = 1;
+					break;
+				}
+			}
+			
+			if(flagW == 1){
+				break;
+			}
 		}
-	}	
+	}
+	else {
+		for(int i = 0; i < strlen(argBuf); i++){
+			deleteUi(buf, count);
+		}	
+		strcpy(buf + *count, ovl[0]);
+		*count = *count + strlen(ovl[0]);
+/*
+		for(int i = 0; i < BUFSIZE; i++){
+			if(ls[i] == NULL){
+				break;
+			}
 
+			if( (ptrLs = strstr(ls[i], argBuf)) != NULL ){
+				for(int i = 0; i < strlen(argBuf); i++){
+					deleteUi(buf, count);	
+				}	
+
+				strcpy(buf + *count, ls[i]);
+				*count = *count + strlen(ls[i]);
+			}
+		}
+*/
+	}
 	
 }
 
