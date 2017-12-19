@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <pthread.h>
 
 #define BUFSIZE 1024
 
@@ -125,34 +126,55 @@ char** getCurDir(char ** buf){
 	
 }
 
-void getArgBuf(char buf[], int count, char argBuf[]){
-	int flag = 0;
-	int i = 0;
+void getArgBuf(char buf[], int* count, char argBuf[]){
+	int i = *count - 1;
 	int argSize = 0;
-
-	while(1){
-		if(flag == 0 && buf[i] == ' '){
-			break;
-		}
-		i++;
+ 
+	while(buf[i] != ' '){
+		i--;
 	}
-	
-	for(int j = i; j < count; j++){
-		argBuf[argSize++] = buf[j];
+	i++;
+	while(buf[i] != ' '){
+		argBuf[argSize++] = buf[i++];
 	}
 }
 
-void exeAutoTab(char buf[], int count){
+
+void deleteUi(char buf[], int *count){
+	printf("\b");
+	fputs(" ", stdout);
+	printf("\b");
+
+	if(*count > 0){
+		buf[*count - 1] = '\0';
+		*count = *count - 1;
+	}
+}
+
+
+void exeAutoTab(char buf[], int* count){
 	char ** ls = getCurDir(ls);
 	char * ptrLs, *ptrBuf;
 	char argBuf[BUFSIZE];
-	
-	memset(argBuf, 0, BUFSIZE);
+	int flag = 0;
 
+	memset(argBuf, 0, BUFSIZE);
 	getArgBuf(buf, count, argBuf);
 
-	
+	for(int i = 0; i < BUFSIZE; i++){
+		if(ls[i] == NULL){
+			break;
+		}
+
+		if( (ptrLs = strstr(ls[i], argBuf)) != NULL  ){
+			printf("ptrLs : %s\n", ptrLs);
+			
+		}
+	}
+	printf("end of func\n");
+
 }
+
 
 int main(){
 	
@@ -160,11 +182,12 @@ int main(){
 	int count = 0;
 	char buf[BUFSIZE];
 	char** strToken = NULL;
+	int childPid;
 	memset(buf, 0, BUFSIZE);
 
 	while(1){
 
-		printf("User Shell > ");
+		printf("User Shell >> ");
 		while(1){
 			i = getch();
 
@@ -197,10 +220,13 @@ int main(){
 				strToken = freeStrToken(strToken);
 				break;
 			}
-			else if(i == 9){
-				exeAutoTab(buf, count);
+			if(i == 9){
+				exeAutoTab(buf, &count);
+				printf("end exeAutoTab func\n");
+				continue;
 			}
-			else if(i == 127){
+			if(i == 127){
+				/*
 				printf("\b");
 				fputs(" ", stdout);
 				printf("\b");
@@ -209,10 +235,11 @@ int main(){
 					buf[count - 1] = '\0';
 					count--;
 				}
-			}
-			else {
-				buf[count++] = (char)i;
-			}
+			}*/
+				deleteUi(buf, &count);
+				continue;
+			}	
+			buf[count++] = (char)i;
 		}
 	}
 
