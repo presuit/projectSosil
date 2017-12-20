@@ -72,6 +72,50 @@ char** freeStrToken(char** strToken){
 	return strToken;
 }
 
+void forkPipe(char ** cmdStr, char ** pipeStr){
+	pid_t childPid;
+	int fd[2];
+
+	pipe(fd);
+	childPid = fork();
+
+	if(childPid == -1){
+		printf("error in forkPipe func\n");
+		return;
+	}
+	/*
+	for(int i = 0; i < BUFSIZE; i++){
+		if(cmdStr[i] == NULL){
+			break;
+		}
+		printf("<#cmdStr[%d]> %s\n", i, cmdStr[i]);
+	}
+	
+	for(int i = 0; i < BUFSIZE; i++){
+		if(pipeStr[i] == NULL){
+			break;
+		}
+		printf("<#pipeStr[%d]> %s\n", i, pipeStr[i]);
+	}
+*/
+
+	if(childPid == 0){
+		//child
+		dup2(fd[1], STDOUT_FILENO);
+		close(fd[0]);
+		close(fd[1]);
+		execvp(cmdStr[0], &cmdStr[0]);
+	}
+	else {
+		//parent
+		wait(NULL);
+		dup2(fd[0], STDIN_FILENO);
+		close(fd[0]);
+		close(fd[1]);
+		execvp(pipeStr[0], &pipeStr[0]);
+	}
+}
+
 void exeCommand(char** strToken)
 {
 	pid_t childPid;
@@ -164,14 +208,28 @@ void exeCommand(char** strToken)
 			pipeStr[i] = NULL;
 		}
 	}
-	
+
+	/*
+	for(int i = 0; i < BUFSIZE; i++){
+		if(cmdStr[i] == NULL){
+			break;
+		}
+		printf("<cmdStr[%d]> : %s\n", i, cmdStr[i]);
+	}
+	for(int i = 0; i < BUFSIZE; i++){
+		if(pipeStr[i] == NULL){
+			break;
+		}
+		printf("<pipeStr[%d]> : %s\n", i, pipeStr[i]);
+	}
+	*/
+
 	//fork to exe command
-		pipe(pipeFd);
 		childPid = fork();
 		
 		if(childPid == -1){
 			printf("fork error\n");
-			exit(1);
+			return;
 		}
 
 		if(childPid == 0){
@@ -185,10 +243,7 @@ void exeCommand(char** strToken)
 				execvp(cmdStr[0], &cmdStr[0]);
 			}
 			else if(flagPipe != 0){
-				printf("In child\n");
-				sleep(2);
-				dup2(pipeFd[1], STDOUT_FILENO);
-				execvp(cmdStr[0], &cmdStr[0]);
+				forkPipe(cmdStr, pipeStr);
 			}
 			else {
 				execvp(strToken[0], &strToken[0]);		
@@ -197,10 +252,6 @@ void exeCommand(char** strToken)
 		else {
 	//parent
 			wait(NULL);
-			if(flagPipe != 0){
-				dup2(pipeFd[0], STDIN_FILENO);
-				execvp(pipeStr[0], &pipeStr[0]);
-			}
 		}
 }
 
