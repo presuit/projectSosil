@@ -72,7 +72,7 @@ char** freeStrToken(char** strToken){
 	return strToken;
 }
 
-void forkPipe(char ** cmdStr, char ** pipeStr){
+void forkPipe(char ** cmdStr, char ** pipeStr, int flag, int fileFd){
 	pid_t childPid;
 	int fd[2];
 
@@ -112,6 +112,12 @@ void forkPipe(char ** cmdStr, char ** pipeStr){
 		dup2(fd[0], STDIN_FILENO);
 		close(fd[0]);
 		close(fd[1]);
+		if(flag == 1){
+			dup2(fileFd, STDOUT_FILENO);
+		}
+		if(flag == 2){
+			dup2(fileFd, STDIN_FILENO);
+		}
 		execvp(pipeStr[0], &pipeStr[0]);
 	}
 }
@@ -121,18 +127,21 @@ void exeCommand(char** strToken)
 	pid_t childPid;
 	int fd;
 	int pipeFd[2];
-	int pipeSize = 0;
-	int flagInput = 0, flagOutput = 0, flagPipe = 0;
+	int pipeSize = 0, pipeOutSize = 0;
+	int flagInput = 0, flagOutput = 0, flagPipe = 0, flagPipeOut = 0;
 	char bufInput[BUFSIZE];
 	char ** cmdStr = (char**)malloc(sizeof(char*) * BUFSIZE);
 	char ** pipeStr = (char**)malloc(sizeof(char*) * BUFSIZE);
+	char ** pipeStrOut = (char**)malloc(sizeof(char*) * BUFSIZE);
 	memset(bufInput, 0, BUFSIZE);
 
 	for(int i = 0; i < BUFSIZE; i++){
 		cmdStr[i] = (char*)malloc(sizeof(char) * BUFSIZE);
 		pipeStr[i] = (char*)malloc(sizeof(char) * BUFSIZE);
+		pipeStrOut[i] = (char*)malloc(sizeof(char) * BUFSIZE);
 		memset(cmdStr[i], 0, BUFSIZE);
 		memset(pipeStr[i], 0, BUFSIZE);
+		memset(pipeStrOut[i], 0, BUFSIZE);
 	}
 
 	for(int i = 0; i < BUFSIZE; i++){
@@ -189,6 +198,13 @@ void exeCommand(char** strToken)
 	}
 
 	if(flagPipe != 0){
+		for(int i = 0; i < BUFSIZE; i++){
+			if(cmdStr[i] == NULL){
+				break;
+			}
+			memset(cmdStr[i], 0, BUFSIZE);
+		}
+
 		for(int i = 0; i < flagPipe - 1; i++){
 			strcpy(cmdStr[i], strToken[i]);
 		}
@@ -234,16 +250,50 @@ void exeCommand(char** strToken)
 
 		if(childPid == 0){
 	//child
-			if(flagInput != 0){
+			if(flagPipe != 0){
+				if(flagOutput != 0 || flagInput != 0){
+					for(int i = 0; i < BUFSIZE; i++){
+						if(pipeStr[i] == NULL){
+							break;
+						}
+						if(!strcmp(pipeStr[i], ">")){
+							flagPipeOut = i + 1;
+						}
+					}
+					for(int i = flagPipeOut; i < BUFSIZE; i++){
+						if(pipeStr[i] == NULL){
+							break;
+						}
+						strcpy(pipeStrOut[pipeOutSize++], pipeStr[i]);
+					}
+					for(int i = flagPipeOut - 1; i < BUFSIZE; i++){
+						free(pipeStr[i]);
+						pipeStr[i] = NULL;
+					}
+					for(int i = pipeOutSize; i < BUFSIZE; i++){
+						free(pipeStrOut[i]);
+						pipeStrOut[i] = NULL;
+					}
+
+					if(flagOutput != 0){
+						forkPipe(cmdStr, pipeStr, 1, fd);
+					}
+					else if(flagInput != 0){
+						forkPipe(cmdStr, pipeStr, 2, fd);
+					}
+					
+				}
+				else {
+					forkPipe(cmdStr, pipeStr, 0, 0);
+				}
+			}
+			else if(flagInput != 0){
 				dup2( fd, STDIN_FILENO );
 				execvp(cmdStr[0], &cmdStr[0]);
 			}
 			else if(flagOutput != 0){
 				dup2( fd, STDOUT_FILENO );
 				execvp(cmdStr[0], &cmdStr[0]);
-			}
-			else if(flagPipe != 0){
-				forkPipe(cmdStr, pipeStr);
 			}
 			else {
 				execvp(strToken[0], &strToken[0]);		
