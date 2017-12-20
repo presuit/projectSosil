@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define BUFSIZE 1024
 
@@ -73,8 +75,98 @@ char** freeStrToken(char** strToken){
 void exeCommand(char** strToken)
 {
 	pid_t childPid;
+	int fd;
+	int pipeFd[2];
+	int pipeSize = 0;
+	int flagInput = 0, flagOutput = 0, flagPipe = 0;
+	char bufInput[BUFSIZE];
+	char ** cmdStr = (char**)malloc(sizeof(char*) * BUFSIZE);
+	char ** pipeStr = (char**)malloc(sizeof(char*) * BUFSIZE);
+	memset(bufInput, 0, BUFSIZE);
 
+	for(int i = 0; i < BUFSIZE; i++){
+		cmdStr[i] = (char*)malloc(sizeof(char) * BUFSIZE);
+		pipeStr[i] = (char*)malloc(sizeof(char) * BUFSIZE);
+		memset(cmdStr[i], 0, BUFSIZE);
+		memset(pipeStr[i], 0, BUFSIZE);
+	}
+
+	for(int i = 0; i < BUFSIZE; i++){
+		if(strToken[i] == NULL){
+			break;
+		}
+		
+		if( !strcmp(strToken[i], "<") ){
+			flagInput = i + 1;
+		}
+		if( !strcmp(strToken[i], ">") ){
+			flagOutput = i + 1;
+		}
+		if( !strcmp(strToken[i], "|") ){
+			flagPipe = i + 1;
+		}
+
+	}
+
+	if(flagInput != 0){
+		fd = open( strToken[flagInput],  O_RDONLY );
+
+		if(fd == -1){
+			printf("wrong file format\n");
+			sleep(2);
+			return ;
+		}
+
+		for(int i = 0; i < flagInput -1; i++){
+			strcpy(cmdStr[i], strToken[i]);
+		}
+		for(int i = flagInput -1; i < BUFSIZE; i++){
+			free(cmdStr[i]);
+			cmdStr[i] = NULL;
+		}
+	}
+
+	if(flagOutput != 0){
+		fd = open( strToken[flagOutput],  O_WRONLY | O_CREAT | O_TRUNC, 0644 );
+
+		if(fd == -1){
+			printf("wrong file format\n");
+			sleep(2);
+			return ;
+		}
+
+		for(int i = 0; i < flagOutput -1; i++){
+			strcpy(cmdStr[i], strToken[i]);
+		}
+		for(int i = flagOutput -1; i < BUFSIZE; i++){
+			free(cmdStr[i]);
+			cmdStr[i] = NULL;
+		}
+	}
+
+	if(flagPipe != 0){
+		for(int i = 0; i < flagPipe - 1; i++){
+			strcpy(cmdStr[i], strToken[i]);
+		}
+		for(int i = flagPipe - 1; i < BUFSIZE; i++){
+			free(cmdStr[i]);
+			cmdStr[i] = NULL;
+		}
+		
+		for(int i = flagPipe; i < BUFSIZE; i++){
+			if(strToken[i] == NULL){
+				break;
+			}
+			strcpy(pipeStr[pipeSize++], strToken[i] );
+		}
+		for(int i = pipeSize; i < BUFSIZE; i++){
+			free(pipeStr[i]);
+			pipeStr[i] = NULL;
+		}
+	}
+	
 	//fork to exe command
+		pipe(pipeFd);
 		childPid = fork();
 		
 		if(childPid == -1){
@@ -84,11 +176,31 @@ void exeCommand(char** strToken)
 
 		if(childPid == 0){
 	//child
-			execvp(strToken[0], &strToken[0]);		
+			if(flagInput != 0){
+				dup2( fd, STDIN_FILENO );
+				execvp(cmdStr[0], &cmdStr[0]);
+			}
+			else if(flagOutput != 0){
+				dup2( fd, STDOUT_FILENO );
+				execvp(cmdStr[0], &cmdStr[0]);
+			}
+			else if(flagPipe != 0){
+				printf("In child\n");
+				sleep(2);
+				dup2(pipeFd[1], STDOUT_FILENO);
+				execvp(cmdStr[0], &cmdStr[0]);
+			}
+			else {
+				execvp(strToken[0], &strToken[0]);		
+			}
 		}
 		else {
 	//parent
 			wait(NULL);
+			if(flagPipe != 0){
+				dup2(pipeFd[0], STDIN_FILENO);
+				execvp(pipeStr[0], &pipeStr[0]);
+			}
 		}
 }
 
@@ -179,12 +291,6 @@ void exeAutoTab(char buf[], int* count){
 			flag++;
 			strcpy(ovl[ovlSize++], ls[i]);
 		}
-		/*
-		if( (ptrLs = strstr(ls[i], argBuf)) != NULL ){
-			flag++;
-			strcpy(ovl[ovlSize++], ls[i]);
-		}
-		*/
 	}
 
 	for(int i = ovlSize; i < BUFSIZE; i++){
@@ -241,22 +347,6 @@ void exeAutoTab(char buf[], int* count){
 		}	
 		strcpy(buf + *count, ovl[0]);
 		*count = *count + strlen(ovl[0]);
-/*
-		for(int i = 0; i < BUFSIZE; i++){
-			if(ls[i] == NULL){
-				break;
-			}
-
-			if( (ptrLs = strstr(ls[i], argBuf)) != NULL ){
-				for(int i = 0; i < strlen(argBuf); i++){
-					deleteUi(buf, count);	
-				}	
-
-				strcpy(buf + *count, ls[i]);
-				*count = *count + strlen(ls[i]);
-			}
-		}
-*/
 	}
 	
 }
