@@ -75,7 +75,14 @@ char** freeStrToken(char** strToken){
 void forkPipe(char ** cmdStr, char ** pipeStr, int flag, int fileFd){
 	pid_t childPid;
 	int fd[2];
-
+//	int flagPipe = 0, splitStrSize = 0;
+//	char ** splitStr = (char**)malloc(sizeof(char*)* BUFSIZE);
+/*
+	for(int i = 0; i < BUFSIZE; i++){
+		splitStr[i] = (char*)malloc(sizeof(char) * BUFSIZE);
+		memset(splitStr[i], 0, BUFSIZE);
+	}
+*/
 	pipe(fd);
 	childPid = fork();
 
@@ -109,6 +116,32 @@ void forkPipe(char ** cmdStr, char ** pipeStr, int flag, int fileFd){
 	else {
 		//parent
 		wait(NULL);
+/*
+		for(int i = 0; i < BUFSIZE; i++){
+			if(pipeStr[i] == NULL){
+				break;
+			}
+			if(!strcmp(pipeStr[i], "|")){
+				flagPipe = i + 1;
+			}
+		}
+		if(flagPipe > 0){
+			for(int i = flagPipe; i < BUFSIZE; i++){
+				if(pipeStr[i] == NULL){
+					break;
+				}
+				strcpy(splitStr[splitStrSize++], pipeStr[i]);
+			}
+			for(int i = splitStrSize; i < BUFSIZE; i++){
+				free(splitStr[i]);
+				splitStr[i] = NULL;
+			}
+			for(int i = flagPipe - 1; i < BUFSIZE; i++){
+				free(pipeStr[i]);
+				pipeStr[i] = NULL;
+			}
+		}
+*/
 		dup2(fd[0], STDIN_FILENO);
 		close(fd[0]);
 		close(fd[1]);
@@ -260,21 +293,24 @@ void exeCommand(char** strToken)
 							flagPipeOut = i + 1;
 						}
 					}
+					/*
 					for(int i = flagPipeOut; i < BUFSIZE; i++){
 						if(pipeStr[i] == NULL){
 							break;
 						}
 						strcpy(pipeStrOut[pipeOutSize++], pipeStr[i]);
 					}
+					*/
 					for(int i = flagPipeOut - 1; i < BUFSIZE; i++){
 						free(pipeStr[i]);
 						pipeStr[i] = NULL;
 					}
+					/*
 					for(int i = pipeOutSize; i < BUFSIZE; i++){
 						free(pipeStrOut[i]);
 						pipeStrOut[i] = NULL;
 					}
-
+					*/
 					if(flagOutput != 0){
 						forkPipe(cmdStr, pipeStr, 1, fd);
 					}
@@ -452,14 +488,57 @@ void exeAutoTab(char buf[], int* count){
 	
 }
 
-int main(){
+void blockSignal(){
+	sigset_t mask;
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGINT);
+	sigaddset(&mask, SIGQUIT);
+
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+}
+
+void * _exeBack(void * arg){
+	char ** str = (char**)arg;
+	exeCommand(str);
+	return NULL;
+}
+
+void exeBack(char** strToken){
+	char **str = (char**)malloc(sizeof(char*) * BUFSIZE);
+	int size = 0;
+	pthread_t t;
+
+	for(int i = 0; i < BUFSIZE; i++){
+		str[i] = (char*)malloc(sizeof(char) * BUFSIZE);
+		memset(str[i], 0, BUFSIZE);
+	}
+	for(int i = 0; i < BUFSIZE; i++){
+		if(strToken[i] == NULL){
+			break;
+		}
+		if(!strcmp(strToken[i], "&")){
+			break;
+		}
+		strcpy(str[size++], strToken[i]);
+	}
+	for(int i = size; i < BUFSIZE; i++){
+		free(str[i]);
+		str[i] = NULL;
+	}
 	
+	pthread_create(&t, NULL, _exeBack, str);
+	
+}
+
+int main(){
 	int i;
 	int count = 0;
 	char buf[BUFSIZE];
 	char** strToken = NULL;
-	int childPid;
+	int childPid, flagBack;
 	memset(buf, 0, BUFSIZE);
+	
+	blockSignal();
 
 	while(1){
 		printf("User Shell >> ");
@@ -487,8 +566,22 @@ int main(){
 				printf("======================\n");
 				
 //end test
-			//exe command
-				exeCommand(strToken);
+				for(int i = 0; i < BUFSIZE; i++){
+					if(strToken[i] == NULL){
+						break;
+					}
+					if(!strcmp(strToken[i], "&")){
+						flagBack = 1;
+					}
+				}
+				if(flagBack == 1){
+					//exe background
+					exeBack(strToken);
+				}
+				else {
+					//exe command
+					exeCommand(strToken);
+				}
 				memset(buf, 0, BUFSIZE);
 				count = 0;
 				strToken = freeStrToken(strToken);
